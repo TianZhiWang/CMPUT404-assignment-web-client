@@ -24,6 +24,8 @@ import re
 # you may use urllib to encode data appropriately
 import urllib
 
+import urlparse
+
 def help():
     print "httpclient.py [GET/POST] [URL]\n"
 
@@ -35,8 +37,15 @@ class HTTPResponse(object):
 class HTTPClient(object):
     #def get_host_port(self,url):
 
-    def connect(self, host, port):
-        # use sockets!
+    clientSocket = None
+
+    def connect(self, host, port=80):
+        if(port == None):
+            port = 80
+
+        self.clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.clientSocket.connect((host,port))
+
         return None
 
     def get_code(self, data):
@@ -61,8 +70,24 @@ class HTTPClient(object):
         return str(buffer)
 
     def GET(self, url, args=None):
-        code = 500
-        body = ""
+
+        # if("http://" in url):
+        #     url.replace("http://","")
+
+        urlvar = urlparse.urlparse(url)
+
+        print("NETLOC: ------- "+ str(urlvar.hostname) + " port: " + str(urlvar.port))
+        self.connect(str(urlvar.hostname), urlvar.port)
+        request = "GET {} HTTP/1.0\r\n\r\n".format(str(urlvar.path))
+
+        self.clientSocket.sendall(request)
+
+        response = self.recvall(self.clientSocket)
+
+
+        code = int(response.split()[1])
+        print(code)
+        body = response.split("\r\n\r\n")[-1]
         return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
