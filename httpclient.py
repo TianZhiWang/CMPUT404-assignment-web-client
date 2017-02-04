@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
-# Copyright 2016 Abram Hindle, https://github.com/tywtyw2002, and https://github.com/treedust
+# Copyright 2016 Abram Hindle, https://github.com/tywtyw2002, and https://github.com/treedust, Tian Zhi Wang, Kyle Carlstrom
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,13 +49,13 @@ class HTTPClient(object):
         return None
 
     def get_code(self, data):
-        return None
+        return int(data.split()[1])
 
     def get_headers(self,data):
-        return None
+        return data.split("\r\n\r\n")[0]
 
     def get_body(self, data):
-        return None
+        return data.split("\r\n\r\n")[-1]
 
     # read everything from the socket
     def recvall(self, sock):
@@ -69,31 +69,36 @@ class HTTPClient(object):
                 done = not part
         return str(buffer)
 
-    def GET(self, url, args=None):
-
-        # if("http://" in url):
-        #     url.replace("http://","")
-
+    def __send_request(self, verb, url, args=None):
         urlvar = urlparse.urlparse(url)
+        host = str(urlvar.hostname)
+        port = int(urlvar.port or 80)
+        body = urllib.urlencode(args) if args else ""
+        path = str(urlvar.path)
 
-        print("NETLOC: ------- "+ str(urlvar.hostname) + " port: " + str(urlvar.port))
-        self.connect(str(urlvar.hostname), urlvar.port)
-        request = "GET {} HTTP/1.0\r\n\r\n".format(str(urlvar.path))
+        self.connect(host, port)
+        request = "{} {} HTTP/1.0\r\n".format(verb, path)
+        request += "HOST: {}:{}\r\n".format(host,port)
+        request += "Content-Length: {}\r\n".format(len(body))
+
+        if body != "":
+            request += "Content-Type: application/x-www-form-urlencoded\r\n\r\n"
+            request += body
+        else:
+            request += "\r\n"
 
         self.clientSocket.sendall(request)
-
         response = self.recvall(self.clientSocket)
 
-
-        code = int(response.split()[1])
-        print(code)
-        body = response.split("\r\n\r\n")[-1]
+        code = self.get_code(response)
+        body = self.get_body(response)
         return HTTPResponse(code, body)
+
+    def GET(self, url, args=None):
+        return self.__send_request("GET", url, args)
 
     def POST(self, url, args=None):
-        code = 500
-        body = ""
-        return HTTPResponse(code, body)
+         return self.__send_request("POST", url, args)
 
     def command(self, url, command="GET", args=None):
         if (command == "POST"):
